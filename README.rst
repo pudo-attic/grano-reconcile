@@ -11,13 +11,13 @@ of Google Refine and OpenRefine, and thus assist cleaning raw data.
 Installation
 ------------
 
-``grano-ui`` requires that you have installed and configured
+``grano-reconcile`` requires that you have installed and configured
 `grano <http://grano.cc/>`_. Please refer to `grano's documentation <http://docs.grano.cc/>`_
 for further instructions. Afterwards, install the ``grano-reconcile``
 package (from PyPI or source) into the same virtual environment.
 
 You will also need to configure the Postgres database to support text matching
-by installing the levenshtein extension::
+by installing the ``fuzzystrmatch`` extension::
 
     CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
 
