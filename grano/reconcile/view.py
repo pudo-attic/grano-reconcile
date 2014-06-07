@@ -244,5 +244,4 @@ def suggest_type(slug):
 class Configure(Startup):
 
     def configure(self, manager):
-        print 'huhu'
         app.register_blueprint(blueprint)
