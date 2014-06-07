@@ -44,7 +44,7 @@ def find_matches(project, account, text, schemata=[], properties=[]):
     q = q.filter(main.entity_id!=None)
     q = q.join(ent)
     q = q.filter(ent.project_id==project.id)
-    
+
     for schema in schemata:
         obj = aliased(Schema)
         es = aliased(entity_schema)

@@ -1,15 +1,13 @@
 import json
 
 from sqlalchemy import or_
-from flask import Blueprint, render_template, request
-from flask import redirect, make_response, url_for
+from flask import Blueprint, request, url_for
 
 from grano.lib.serialisation import jsonify
 from grano.lib.args import object_or_404, get_limit
-from grano.lib.pager import Pager
 from grano.interface import Startup
 from grano.core import app, db, app_name
-from grano.logic import entities
+from grano.lib.exc import BadRequest
 from grano.model import Entity, Project, EntityProperty
 from grano.model import Schema, Attribute
 from grano import authz
@@ -29,7 +27,7 @@ def reconcile_index(project):
         'schemaSpace': 'http://rdf.freebase.com/ns/type.object.id',
         'view': {'url': urlp},
         'preview': {
-            'url': urlp + '?preview=true', 
+            'url': urlp + '?preview=true',
             'width': 600,
             'height': 300
         },
@@ -61,7 +59,6 @@ def reconcile_index(project):
 
 
 def reconcile_op(project, query):
-    
     schemata = []
     if 'type' in query:
         schemata = query.get('type')
@@ -75,8 +72,9 @@ def reconcile_op(project, query):
             properties.append((p.get('pid'), p.get('v')))
 
     matches = find_matches(project, request.account,
-        query.get('query', ''), schemata=schemata,
-        properties=properties)
+                           query.get('query', ''),
+                           schemata=schemata,
+                           properties=properties)
     matches = matches.limit(get_limit(default=5))
 
     results = []
@@ -89,11 +87,12 @@ def reconcile_op(project, query):
                 'name': project.label
                 }],
             'id': match['entity'].id,
-            'uri': url_for('entities_api.view', id=match['entity'].id, _external=True),
-            'match': match['score']==100
+            'uri': url_for('entities_api.view', id=match['entity'].id,
+                           _external=True),
+            'match': match['score'] == 100
         })
     return {
-        'result': results, 
+        'result': results,
         'num': len(results)
         }
 
@@ -101,7 +100,7 @@ def reconcile_op(project, query):
 @blueprint.route('/api/1/projects/<slug>/_reconcile', methods=['GET', 'POST'])
 def reconcile(slug):
     """
-    Reconciliation API, emulates Google Refine API. See: 
+    Reconciliation API, emulates Google Refine API. See:
     http://code.google.com/p/google-refine/wiki/ReconciliationServiceApi
     """
     project = object_or_404(Project.by_slug(slug))
@@ -111,7 +110,7 @@ def reconcile(slug):
     data = request.args.copy()
     data.update(request.form.copy())
     if 'query' in data:
-        # single 
+        # single
         q = data.get('query')
         if q.startswith('{'):
             try:
@@ -138,7 +137,7 @@ def reconcile(slug):
 
 @blueprint.route('/api/1/projects/<slug>/_suggest_entity', methods=['GET', 'POST'])
 def suggest_entity(slug):
-    """ 
+    """
     Suggest API, emulates Google Refine API. See:
     https://github.com/OpenRefine/OpenRefine/wiki/Reconciliation-Service-API
     """
@@ -151,18 +150,18 @@ def suggest_entity(slug):
     q = db.session.query(EntityProperty)
     q = q.join(Entity)
     q = q.join(Project)
-    q = q.filter(EntityProperty.name=='name')
-    q = q.filter(EntityProperty.active==True)
-    q = q.filter(EntityProperty.entity_id!=None)
+    q = q.filter(EntityProperty.name == 'name')
+    q = q.filter(EntityProperty.active == True)
+    q = q.filter(EntityProperty.entity_id != None)
     q = q.filter(EntityProperty.value_string.ilike(prefix))
-    q = q.filter(Project.slug==slug)
+    q = q.filter(Project.slug == slug)
 
     if 'type' in request.args:
         schema_name = request.args.get('type')
         if '/' in schema_name:
             _, schema_name = schema_name.rsplit('/', 1)
         q = q.join(Schema)
-        q = q.filter(Schema.name==schema_name)
+        q = q.filter(Schema.name == schema_name)
 
     q = q.distinct()
     q = q.limit(get_limit(default=5))
@@ -174,15 +173,15 @@ def suggest_entity(slug):
             'n:type': {
                 'id': '/' + project.slug,
                 'name': project.label
-                },
+            },
             'id': eprop.entity_id
-            })
-    return jsonify({
-        "code" : "/api/status/ok",
-        "status" : "200 OK",
-        "prefix" : request.args.get('prefix', ''),
-        "result" : matches
         })
+    return jsonify({
+        "code": "/api/status/ok",
+        "status": "200 OK",
+        "prefix": request.args.get('prefix', ''),
+        "result": matches
+    })
 
 
 @blueprint.route('/api/1/projects/<slug>/_suggest_property', methods=['GET', 'POST'])
@@ -193,8 +192,8 @@ def suggest_property(slug):
     prefix = '%%%s%%' % request.args.get('prefix', '')
     q = db.session.query(Attribute)
     q = q.join(Schema)
-    q = q.filter(Schema.obj=='entity')
-    q = q.filter(Schema.project==project)
+    q = q.filter(Schema.obj == 'entity')
+    q = q.filter(Schema.project == project)
     q = q.filter(or_(Attribute.label.ilike(prefix), Attribute.name.ilike(prefix)))
     q = q.limit(get_limit(default=5))
 
@@ -209,11 +208,11 @@ def suggest_property(slug):
             'id': attribute.name
         })
     return jsonify({
-        "code" : "/api/status/ok",
-        "status" : "200 OK",
-        "prefix" : request.args.get('prefix', ''),
-        "result" : matches
-        })
+        "code": "/api/status/ok",
+        "status": "200 OK",
+        "prefix": request.args.get('prefix', ''),
+        "result": matches
+    })
 
 
 @blueprint.route('/api/1/projects/<slug>/_suggest_type', methods=['GET', 'POST'])
@@ -223,8 +222,8 @@ def suggest_type(slug):
 
     prefix = '%%%s%%' % request.args.get('prefix', '')
     q = db.session.query(Schema)
-    q = q.filter(Schema.obj=='entity')
-    q = q.filter(Schema.project==project)
+    q = q.filter(Schema.obj == 'entity')
+    q = q.filter(Schema.project == project)
     q = q.filter(or_(Schema.label.ilike(prefix), Schema.name.ilike(prefix)))
     q = q.limit(get_limit(default=5))
 
@@ -233,16 +232,17 @@ def suggest_type(slug):
         matches.append({
             'name': schema.label,
             'id': '/%s/%s' % (slug, schema.name)
-            })
-    return jsonify({
-        "code" : "/api/status/ok",
-        "status" : "200 OK",
-        "prefix" : request.args.get('prefix', ''),
-        "result" : matches
         })
+    return jsonify({
+        "code": "/api/status/ok",
+        "status": "200 OK",
+        "prefix": request.args.get('prefix', ''),
+        "result": matches
+    })
 
 
 class Configure(Startup):
 
     def configure(self, manager):
+        print 'huhu'
         app.register_blueprint(blueprint)
