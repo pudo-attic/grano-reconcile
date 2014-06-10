@@ -1,4 +1,5 @@
 import json
+import logging
 
 from sqlalchemy import or_
 from flask import Blueprint, request, url_for
@@ -16,6 +17,7 @@ from grano.reconcile.matching import find_matches
 
 
 blueprint = Blueprint('reconcile', __name__)
+log = logging.getLogger(__name__)
 
 
 def reconcile_index(project):
@@ -59,6 +61,8 @@ def reconcile_index(project):
 
 
 def reconcile_op(project, query):
+    log.info("Reconciling in %s: %r", project.slug, query)
+    
     schemata = []
     if 'type' in query:
         schemata = query.get('type')
@@ -79,18 +83,24 @@ def reconcile_op(project, query):
 
     results = []
     for match in matches:
-        results.append({
+        data = {
             'name': match['entity']['name'].value,
             'score': match['score'],
-            'type': [{
-                'id': '/' + project.slug,
-                'name': project.label
-                }],
+            'type': [],
             'id': match['entity'].id,
             'uri': url_for('entities_api.view', id=match['entity'].id,
                            _external=True),
             'match': match['score'] == 100
-        })
+        }
+        for schema in match['entity'].schemata:
+            if schema.hidden:
+                continue
+            data['type'].append({
+                'id': '/' + project.slug + '/' + schema.name,
+                'name': schema.label
+            })
+        results.append(data)
+
     return {
         'result': results,
         'num': len(results)
@@ -109,6 +119,7 @@ def reconcile(slug):
     # TODO: Add proper support for types and namespacing.
     data = request.args.copy()
     data.update(request.form.copy())
+
     if 'query' in data:
         # single
         q = data.get('query')
@@ -145,14 +156,15 @@ def suggest_entity(slug):
     project = object_or_404(Project.by_slug(slug))
     authz.require(authz.project_read(project))
 
-    prefix = request.args.get('prefix', '') + '%'
+    prefix = '%%%s%%' % request.args.get('prefix', '')
+    log.info("Suggesting entities in %s: %r", project.slug, prefix)
 
-    q = db.session.query(EntityProperty)
-    q = q.join(Entity)
+    q = db.session.query(Entity)
+    q = q.join(EntityProperty)
     q = q.join(Project)
     q = q.filter(EntityProperty.name == 'name')
     q = q.filter(EntityProperty.active == True)
-    q = q.filter(EntityProperty.entity_id != None)
+    q = q.filter(EntityProperty.entity_id == Entity.id)
     q = q.filter(EntityProperty.value_string.ilike(prefix))
     q = q.filter(Project.slug == slug)
 
@@ -167,15 +179,28 @@ def suggest_entity(slug):
     q = q.limit(get_limit(default=5))
 
     matches = []
-    for eprop in q:
-        matches.append({
-            'name': eprop.value_string,
-            'n:type': {
-                'id': '/' + project.slug,
-                'name': project.label
-            },
-            'id': eprop.entity_id
-        })
+    for e in q:
+        data = {
+            'name': e['name'].value,
+            'n:type': {},
+            'type': [],
+            'uri': url_for('entities_api.view', id=e.id, _external=True),
+            'id': e.id
+        }
+
+        for schema in e.schemata:
+            if schema.hidden:
+                continue
+            data['type'].append({
+                'id': '/' + project.slug + '/' + schema.name,
+                'name': schema.label
+            })
+
+        if len(data['type']):
+            data['n:type'] = data['type'][0]
+
+        matches.append(data)
+
     return jsonify({
         "code": "/api/status/ok",
         "status": "200 OK",
@@ -190,6 +215,8 @@ def suggest_property(slug):
     authz.require(authz.project_read(project))
 
     prefix = '%%%s%%' % request.args.get('prefix', '')
+    log.info("Suggesting property names in %s: %r", project.slug, prefix)
+
     q = db.session.query(Attribute)
     q = q.join(Schema)
     q = q.filter(Schema.obj == 'entity')
@@ -221,8 +248,11 @@ def suggest_type(slug):
     authz.require(authz.project_read(project))
 
     prefix = '%%%s%%' % request.args.get('prefix', '')
+    log.info("Suggesting types in %s: %r", project.slug, prefix)
+
     q = db.session.query(Schema)
     q = q.filter(Schema.obj == 'entity')
+    q = q.filter(Schema.hidden == False)
     q = q.filter(Schema.project == project)
     q = q.filter(or_(Schema.label.ilike(prefix), Schema.name.ilike(prefix)))
     q = q.limit(get_limit(default=5))
