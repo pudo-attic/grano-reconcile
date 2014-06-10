@@ -41,7 +41,7 @@ def find_matches(project, account, text, schemata=[], properties=[]):
     ent = aliased(Entity)
     q = db.session.query(main.entity_id)
     q = q.filter(main.name == 'name')
-    q = q.filter(main.entity_id != None)
+    q = q.filter(main.entity_id == ent.id)
     q = q.join(ent)
     q = q.filter(ent.project_id == project.id)
 
