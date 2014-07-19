@@ -1,13 +1,17 @@
+import os
 from setuptools import setup, find_packages
 
 VERSION = os.path.join(os.path.dirname(__file__), 'VERSION')
 VERSION = open(VERSION, 'r').read().strip()
 
+README = os.path.join(os.path.dirname(__file__), 'README.rst')
+README = open(README, 'r').read().strip()
+
 setup(
     name='grano-reconcile',
     version=VERSION,
     description="An entity and social network tracking software for news applications (OpenRefine reconciliation API)",
-    long_description=open('README.rst').read(),
+    long_description=README,
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
