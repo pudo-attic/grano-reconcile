@@ -9,7 +9,7 @@ from grano.lib.args import object_or_404, get_limit
 from grano.interface import Startup
 from grano.core import app, db, app_name
 from grano.lib.exc import BadRequest
-from grano.model import Entity, Project, EntityProperty
+from grano.model import Entity, Project, Property
 from grano.model import Schema, Attribute
 from grano import authz
 
@@ -160,12 +160,12 @@ def suggest_entity(slug):
     log.info("Suggesting entities in %s: %r", project.slug, prefix)
 
     q = db.session.query(Entity)
-    q = q.join(EntityProperty)
+    q = q.join(Property)
     q = q.join(Project)
-    q = q.filter(EntityProperty.name == 'name')
-    q = q.filter(EntityProperty.active == True)
-    q = q.filter(EntityProperty.entity_id == Entity.id)
-    q = q.filter(EntityProperty.value_string.ilike(prefix))
+    q = q.filter(Property.name == 'name')
+    q = q.filter(Property.active == True)
+    q = q.filter(Property.entity_id == Entity.id)
+    q = q.filter(Property.value_string.ilike(prefix))
     q = q.filter(Project.slug == slug)
 
     if 'type' in request.args:

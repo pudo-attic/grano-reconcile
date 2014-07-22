@@ -1,7 +1,7 @@
 from sqlalchemy import func, select, cast, and_, types
 from sqlalchemy.orm import aliased
 
-from grano.model import Entity, EntityProperty, Schema, Project
+from grano.model import Entity, Property, Schema, Project
 from grano.model.entity import entity_schema
 from grano.core import db
 
@@ -37,7 +37,7 @@ class Matches(object):
 
 
 def find_matches(project, account, text, schemata=[], properties=[]):
-    main = aliased(EntityProperty)
+    main = aliased(Property)
     ent = aliased(Entity)
     q = db.session.query(main.entity_id)
     q = q.filter(main.name == 'name')
@@ -53,7 +53,7 @@ def find_matches(project, account, text, schemata=[], properties=[]):
         q = q.filter(obj.name == schema)
 
     for name, value in properties:
-        p = aliased(EntityProperty)
+        p = aliased(Property)
         q = q.join(p, p.entity_id == ent.id)
         q = q.filter(p.active == True)
         q = q.filter(p.name == name)
