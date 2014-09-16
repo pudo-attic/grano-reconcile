@@ -1,8 +1,7 @@
-from sqlalchemy import func, select, cast, and_, types
+from sqlalchemy import func, cast, types
 from sqlalchemy.orm import aliased
 
-from grano.model import Entity, Property, Schema, Project
-from grano.model.entity import entity_schema
+from grano.model import Entity, Property, Schema
 from grano.core import db
 
 
@@ -47,15 +46,13 @@ def find_matches(project, account, text, schemata=[], properties=[]):
 
     for schema in schemata:
         obj = aliased(Schema)
-        es = aliased(entity_schema)
-        q = q.join(es, es.c.entity_id == ent.id)
-        q = q.join(obj, es.c.schema_id == obj.id)
+        q = q.join(obj, ent.schema_id == obj.id)
         q = q.filter(obj.name == schema)
 
     for name, value in properties:
         p = aliased(Property)
         q = q.join(p, p.entity_id == ent.id)
-        q = q.filter(p.active == True)
+        q = q.filter(p.active == True) # noqa
         q = q.filter(p.name == name)
         attr = project.get_attribute('entity', name)
         column = getattr(p, attr.value_column)
